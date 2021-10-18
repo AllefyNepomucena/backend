@@ -1,6 +1,6 @@
 const { request, response } = require('express')
 const express = require('express')
-const { uuid } = require('uuidv4')
+const { uuid, isUuid } = require('uuidv4')
 const app = express()
 app.use(express.json())
 /**MÉTODOS HTTP
@@ -16,7 +16,32 @@ app.use(express.json())
  * Route Params: Identifiacar recursos (Atualizar/Deletar)
  * Request Params: Conteúdo na hora de criar ou editar um recurso(JSON)
  */
+/**MIDDLEWARE
+ *
+ * Intercepitador de Requisições que Interrompe Totalmente a Requisição ou Alterar Dados
+ */
 const projects = []
+
+function logRequest(request, response, next) {
+  const { method, url } = request
+  const logLabel = `[${method.toUpperCase()}] ${url}`
+
+  console.time(logLabel)
+
+  next() //Próximo Middleware
+
+  console.timeEnd(logLabel)
+}
+
+function validateProjectId(request, response, next) {
+  const { id } = request.params
+  if (!isUuid(id)) {
+    return response.status(400).json({ error: 'Invalid Project Id.' })
+  }
+  return next()
+}
+
+app.use(logRequest)
 
 app.get('/projects', (request, response) => {
   const { title } = request.query
@@ -35,7 +60,7 @@ app.post('/projects', (request, response) => {
   return response.json(project)
 })
 
-app.put('/projects/:id', (request, response) => {
+app.put('/projects/:id', validateProjectId, (request, response) => {
   const { title, owner } = request.body
   const { id } = request.params
   const projectIndex = projects.findIndex(project => project.id === id)
@@ -53,7 +78,7 @@ app.put('/projects/:id', (request, response) => {
   return response.json(project)
 })
 
-app.delete('/projects/:id', (request, response) => {
+app.delete('/projects/:id', validateProjectId, (request, response) => {
   const { id } = request.params
   const projectIndex = projects.findIndex(project => project.id === id)
   if (projectIndex < 0) {
